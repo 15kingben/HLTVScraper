@@ -1,0 +1,26 @@
+match
+
+matchid | team1 | team2 | winner | team1/team2 round stats ... | event |
+
+
+CREATE TABLE player_score (MatchID TEXT, MapName TEXT, PlayerID TEXT, TeamID TEXT, ADR REAL, diff INTEGER,
+Kills INTEGER,  KDATRatio REAL,  Assists INTEGER, Rating REAL, Deaths INTEGER, PRIMARY KEY (MatchID, MapName, PlayerID));
+
+
+
+CREATE TABLE maps ( MatchID TEXT, MapName Text, Event TEXT, MatchDate DATE, GOTV_link TEXT,
+
+  TeamLeft TEXT, TeamRight TEXT,
+  TeamLeftFirstKills INTEGER, TeamRightFirstKills INTEGER,
+  TeamLeftClutches INTEGER, TeamRightClutches INTEGER,
+  TeamLeftWinPistol INTEGER, TeamRightWinPistol INTEGER,
+  TeamLeftTElims INTEGER, TeamRightTElims INTEGER,
+  TeamLeftCTElims INTEGER, TeamRightCTElims INTEGER,
+  TeamLeftBombDefusals INTEGER, TeamRightBombDefusals INTEGER,
+  TeamLeftBombExploded INTEGER, TeamRightBombExploded INTEGER,
+  TeamLeftTWins INTEGER, TeamRightTWins INTEGER,
+  TeamLeftCTWins INTEGER, TeamRightCTWins INTEGER,
+  TeamLeftTotalRounds INTEGER, TeamRightTotalRounds INTEGER,
+
+
+  PRIMARY KEY (MatchID, MapName));
