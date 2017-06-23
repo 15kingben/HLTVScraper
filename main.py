@@ -64,15 +64,24 @@ def getRoundsPistol(roundsDiv):
     return winPistol, numTElims, numCTElims, numBombDefuses, numExps
 
 
+
+
 def parse_player_table(table):
     team_players = {}
     rows = table.find_all('tr')
     for i in range(1, len(rows)):
+        skip=False
         row = rows[i]
         player_id = row.find(class_='st-player').a['href']
         player_stats = {}
         for td in row.find_all('td'):
-            player_stats[td['class'][0]] = td.text
+            if td.text == '-':
+                skip = True
+                break
+            else:
+                player_stats[td['class'][0]] = td.text
+        if skip:
+            continue
         team_players[player_id] = player_stats
 
     return team_players
@@ -134,6 +143,10 @@ def parse_map_page(soup_map_page, url, mapname):
 
 
     roundsDiv = soup_map_page.find_all(class_='round-history-team-row')
+    if roundsDiv == [] or roundsDiv == None: #probably a forfeit, technical difficulties
+        print('skipping' + match_map_id)
+        return
+
     count=0
     team1Pistol, team2Pistol, team1TElims, team2TElims, team1CTElims, team2CTElims, team1BombDefusals, team2BombDefusals, team1Exps, team2Exps = 0,0,0,0,0,0,0,0,0,0
 
@@ -227,8 +240,8 @@ c = conn.cursor()
 session = requests.Session()
 
 
-
-for offset in range(0, 99, 100):
+count = 0
+for offset in range(9900, 15001, 100):
     print("offset = ", offset)
     r = session.get(BASE_URL + "?offset=" + str(offset), headers={'User-Agent' : 'Definitely Not Scraping'})
 
@@ -247,6 +260,12 @@ for offset in range(0, 99, 100):
             link = match.a['href']
             print(link)
 
+            if c.execute("SELECT * FROM matches WHERE Link = ?" , (link,)).fetchone() != None:
+                print('skipping' + link)
+                continue
+            else:
+                c.execute('INSERT INTO matches VALUES(?)', (link,))
+
 
             soup_match_page = BeautifulSoup(session.get(SITE_URL + link).text, 'lxml')
             # gotv_demo_page = session.get(SITE_URL + gotv_demo_link).text
@@ -257,7 +276,13 @@ for offset in range(0, 99, 100):
                 if 'GOTV' in l.text:
                     gotv_demo_link = l['href']
 
-            detailed_stats = soup_match_page.find(class_=re.compile('stats-detailed-stats')).a['href']
+            detailed_stats = soup_match_page.find(class_=re.compile('stats-detailed-stats'))
+            if(detailed_stats == None): # Forfeit maybe?
+                print('skipping' + link)
+                continue
+            else:
+                detailed_stats = detailed_stats.a['href']
+
 
             print("detailed_stats = " + detailed_stats)
             match_link = detailed_stats.split('/')
