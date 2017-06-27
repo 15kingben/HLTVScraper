@@ -200,7 +200,6 @@ def parse_map_page(soup_map_page, url, mapname):
 
 
 
-
     entry = (match_map_id, mapname, eventLink, date_time, "unused", \
         team_left['name'], team_right['name'], team_left['first_kills'], team_right['first_kills'],\
         team_left['clutches'], team_right['clutches'], team_left['win_pistol'], team_right['win_pistol'], \
@@ -210,6 +209,94 @@ def parse_map_page(soup_map_page, url, mapname):
         team_left['total_rounds'], team_right['total_rounds'])
     c.execute("INSERT INTO maps VALUES(?,?,?,?,?, ?,?,?,?, ?,?,?,?, ?,?,?,?, ?,?,?,?, ?,?,?,?, ?,? )", entry)
     conn.commit()
+
+
+
+def parse_simple_map_page(soup_match_page, url):
+    match_id_base = url.split('/')[2]
+
+    teamBox = soup_match_page.find(class_="teamsBox")
+    if teamBox == None:  # page deleted
+        print("skipping", url)
+        return
+    timeEventBox = teamBox.find(class_="timeAndEvent")
+    teamLeftBox = teamBox.find_all(class_="team")[0]
+    teamRightBox = teamBox.find_all(class_="team")[1]
+
+    date_time = timeEventBox.find(class_="time").text
+    eventLink = timeEventBox.find(class_="event").a['href']
+
+    teamLeft = teamLeftBox.find(class_="team1-gradient").a['href']
+    teamRight = teamRightBox.find(class_="team2-gradient").a['href']
+
+    # Forgetting about the different naming structure and team histories starting over -- maybe it will help it be resistant to roster changes
+
+
+    print(match_id_base)
+
+
+    print(date_time, eventLink, teamLeft, teamRight)
+
+
+    mapholder = soup_match_page.find_all(class_="mapholder")
+
+    count = 0
+    for m in mapholder:
+
+
+        count+=1
+        if m.find(class_="optional") != None:
+            continue
+        mapname = m.find(class_="mapname").text
+        spans = m.find(class_="results")
+        if spans != None:
+            spans = spans.find_all("span")
+        else:
+            return
+        if spans == None:
+            return
+
+        teamLeftTRounds = 0
+        teamRightTRounds = 0
+        teamLeftCTRounds = 0
+        teamRightCTRounds = 0
+
+        if spans[4].class_ == 't':
+            teamLeftTRounds += int(spans[4].text)
+            teamLeftCTRounds += int(spans[8].text)
+            teamRightCTRounds += int(spans[6].text)
+            teamRightTRounds += int(spans[10].text)
+        else:
+            teamLeftCTRounds += int(spans[4].text)
+            teamLeftTRounds += int(spans[8].text)
+            teamRightTRounds += int(spans[6].text)
+            teamRightCTRounds += int(spans[10].text)
+
+        teamLeftTotalRounds = teamLeftTRounds + teamLeftCTRounds
+        teamRightTotalRounds = teamRightTRounds + teamRightCTRounds
+
+
+
+        match_map_id = match_id_base + '_'  + str(count)
+
+        entry = (match_map_id, mapname, eventLink, date_time, "unused", \
+            teamLeft, teamRight, -1, -1,\
+            -1, -1, -1, -1, \
+            -1, -1,-1,-1, \
+            -1,-1,-1,-1,\
+            teamLeftTRounds, teamRightTRounds, teamLeftCTRounds, teamRightCTRounds,\
+            teamLeftTotalRounds, teamRightTotalRounds)
+        print(entry)
+        c.execute("INSERT INTO maps VALUES(?,?,?,?,?, ?,?,?,?, ?,?,?,?, ?,?,?,?, ?,?,?,?, ?,?,?,?, ?,? )", entry)
+
+
+
+
+
+
+
+    conn.commit()
+
 
 
 
@@ -239,9 +326,8 @@ c = conn.cursor()
 
 session = requests.Session()
 
-
 count = 0
-for offset in range(9900, 15001, 100):
+for offset in range(11500, 15001, 100):
     print("offset = ", offset)
     r = session.get(BASE_URL + "?offset=" + str(offset), headers={'User-Agent' : 'Definitely Not Scraping'})
 
@@ -260,17 +346,37 @@ for offset in range(9900, 15001, 100):
             link = match.a['href']
             print(link)
 
-            if c.execute("SELECT * FROM matches WHERE Link = ?" , (link,)).fetchone() != None:
+
+
+
+
+
+
+            if c.execute("SELECT * FROM matches WHERE Link = ?" , (link,)).fetchone() != None and offset != 11400:
                 print('skipping' + link)
                 continue
             else:
-                c.execute('INSERT INTO matches VALUES(?)', (link,))
+                if offset != 11400:
+                    c.execute('INSERT INTO matches VALUES(?)', (link,))
 
 
-            soup_match_page = BeautifulSoup(session.get(SITE_URL + link).text, 'lxml')
+
+
+            resp = session.get(SITE_URL + link)
+            soup_match_page = BeautifulSoup(resp.text, 'lxml')
             # gotv_demo_page = session.get(SITE_URL + gotv_demo_link).text
 
             # soup_match_page = BeautifulSoup(gotv_demo_page, 'lxml')
+
+
+
+            if offset >= 11400:
+                # Old style
+                url = link
+                parse_simple_map_page(soup_match_page, url)
+
+                continue
+
 
             for l in soup_match_page.find_all('a'):
                 if 'GOTV' in l.text:
