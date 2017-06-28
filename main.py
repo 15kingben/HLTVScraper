@@ -207,7 +207,7 @@ def parse_map_page(soup_map_page, url, mapname):
         team_left['bomb_defused'], team_right['bomb_defused'], team_left['bomb_exp'], team_right['bomb_exp'],\
         team_left['T_wins'], team_right['T_wins'], team_left['CT_wins'], team_right['CT_wins'],\
         team_left['total_rounds'], team_right['total_rounds'])
-    c.execute("INSERT INTO maps VALUES(?,?,?,?,?, ?,?,?,?, ?,?,?,?, ?,?,?,?, ?,?,?,?, ?,?,?,?, ?,? )", entry)
+    c.execute("INSERT IfNTO maps VALUES(?,?,?,?,?, ?,?,?,?, ?,?,?,?, ?,?,?,?, ?,?,?,?, ?,?,?,?, ?,? )", entry)
     conn.commit()
 
 
@@ -223,7 +223,13 @@ def parse_simple_map_page(soup_match_page, url):
     teamLeftBox = teamBox.find_all(class_="team")[0]
     teamRightBox = teamBox.find_all(class_="team")[1]
 
-    date_time = timeEventBox.find(class_="time").text
+    date_time = timeEventBox.find(class_="date").text
+    date_time = date_time.replace("th", "").replace('st', "").replace("rd", "").replace("nd", "").replace("of ", "").replace('Augu', 'August')
+    time = timeEventBox.find(class_="time").text
+
+    date_time = datetime.datetime.strptime(date_time + " " + time + ":00", "%d %B %Y %X")
+    date_time = date_time.isoformat().replace("T", " ")[:-3]
+
     eventLink = timeEventBox.find(class_="event").a['href']
 
     teamLeft = teamLeftBox.find(class_="team1-gradient").a['href']
@@ -248,6 +254,8 @@ def parse_simple_map_page(soup_match_page, url):
         if m.find(class_="optional") != None:
             continue
         mapname = m.find(class_="mapname").text
+        if mapname == "Default":
+            continue
         spans = m.find(class_="results")
         if spans != None:
             spans = spans.find_all("span")
@@ -255,6 +263,9 @@ def parse_simple_map_page(soup_match_page, url):
             return
         if spans == None:
             return
+        for s in spans:
+            if s.text == "; -:-":
+                return
 
         teamLeftTRounds = 0
         teamRightTRounds = 0
@@ -287,7 +298,10 @@ def parse_simple_map_page(soup_match_page, url):
             teamLeftTRounds, teamRightTRounds, teamLeftCTRounds, teamRightCTRounds,\
             teamLeftTotalRounds, teamRightTotalRounds)
         print(entry)
-        c.execute("INSERT INTO maps VALUES(?,?,?,?,?, ?,?,?,?, ?,?,?,?, ?,?,?,?, ?,?,?,?, ?,?,?,?, ?,? )", entry)
+        if c.execute("SELECT * FROM maps WHERE MatchID = ? and MapName = ?", (match_map_id, mapname)).fetchone() != None:
+            print("skipping")
+        else:
+            c.execute("INSERT INTO maps VALUES(?,?,?,?,?, ?,?,?,?, ?,?,?,?, ?,?,?,?, ?,?,?,?, ?,?,?,?, ?,? )", entry)
 
 
 
@@ -327,7 +341,7 @@ c = conn.cursor()
 session = requests.Session()
 
 count = 0
-for offset in range(11500, 15001, 100):
+for offset in range(24100, 24500, 100):
     print("offset = ", offset)
     r = session.get(BASE_URL + "?offset=" + str(offset), headers={'User-Agent' : 'Definitely Not Scraping'})
 
@@ -345,7 +359,6 @@ for offset in range(11500, 15001, 100):
         for match in matches:
             link = match.a['href']
             print(link)
-
 
 
 
