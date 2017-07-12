@@ -207,7 +207,7 @@ def parse_map_page(soup_map_page, url, mapname):
         team_left['bomb_defused'], team_right['bomb_defused'], team_left['bomb_exp'], team_right['bomb_exp'],\
         team_left['T_wins'], team_right['T_wins'], team_left['CT_wins'], team_right['CT_wins'],\
         team_left['total_rounds'], team_right['total_rounds'])
-    c.execute("INSERT IfNTO maps VALUES(?,?,?,?,?, ?,?,?,?, ?,?,?,?, ?,?,?,?, ?,?,?,?, ?,?,?,?, ?,? )", entry)
+    c.execute("INSERT INTO maps VALUES(?,?,?,?,?, ?,?,?,?, ?,?,?,?, ?,?,?,?, ?,?,?,?, ?,?,?,?, ?,? )", entry)
     conn.commit()
 
 
