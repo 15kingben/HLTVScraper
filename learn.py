@@ -1,7 +1,7 @@
 import sys
-from bs4 import BeautifulSoup
-import urllib.request
-import requests
+
+
+
 import re
 import pandas as pd
 
@@ -180,7 +180,9 @@ for i in tmpidx:
     idx[i] = tmpidx.index(i)
 
 
-dataMatrix = None
+numRows = 0
+
+dataMatrix = None 
 
 # team lifetime winrate on map
 conn = sqlite3.connect('csgo.db')
@@ -190,13 +192,16 @@ maps = c.execute("SELECT * FROM maps")
 
 for m in maps.fetchall():
     # map affinity
+    
+    print( m[idx['TeamLeftTotalRounds']] , m[idx['TeamRightTotalRounds']] )
     if m[idx['TeamLeftTotalRounds']] > m[idx['TeamRightTotalRounds']]:
         y = 1
-    if m[idx['TeamLeftTotalRounds']] < m[idx['TeamRightTotalRounds']]:
+    elif m[idx['TeamLeftTotalRounds']] < m[idx['TeamRightTotalRounds']]:
         y = -1
     else:
         y = 0
-
+        assert m[idx['TeamLeftTotalRounds']] == m[idx['TeamRightTotalRounds']]
+        
     mapname = m[idx['MapName']]
     teamLeft = m[idx['TeamLeft']]
     teamRight = m[idx['TeamRight']]
@@ -297,8 +302,16 @@ for m in maps.fetchall():
 
 
     # map affinity
-    map_affinity_left = c.execute("SELECT Winrate FROM map_affinity WHERE Team_ID = ? AND MapName = ?" , ( teamLeft, mapname)).fetchone()[0]
-    map_affinity_right = c.execute("SELECT Winrate FROM map_affinity WHERE Team_ID = ? AND MapName = ?" , ( teamRight, mapname)).fetchone()[0]
+    map_affinity_left = c.execute("SELECT Winrate FROM map_affinity WHERE Team_ID = ? AND MapName = ?" , ( teamLeft, mapname)).fetchone()
+    if map_affinity_left is None:
+        map_affinity_left = .5
+    else:
+        map_affinity_left = map_affinity_left[0]
+    map_affinity_right = c.execute("SELECT Winrate FROM map_affinity WHERE Team_ID = ? AND MapName = ?" , ( teamRight, mapname)).fetchone()
+    if map_affinity_right is None:
+        map_affinity_right = .5
+    else:
+        map_affinity_right = map_affinity_right[0]
 
 
     #map count
@@ -313,12 +326,16 @@ for m in maps.fetchall():
     teamLeftMonthlyPerf = getMonthPerformance(teamLeft, matchDate)
     teamRightMonthlyPerf = getMonthPerformance(teamRight, matchDate)
 
-    print(teamLeftMonthlyPerf)
     prflen = len(teamLeftMonthlyPerf)
 
-    print(mapname, teamLeft, teamRight, matchDateText, matchTime, teamLeftRating , \
-        teamRightRating, teamLeftKD, teamLeftDiff, newTeamLeft, newTeamRight, \
-        teamLeftLastMatch, teamRightLastMatch, teamLeftThisWeek, map_affinity_left, teamLeftMapCount)
+#    print(mapname, teamLeft, teamRight, matchDateText, matchTime, teamLeftRating , \
+#        teamRightRating, teamLeftKD, teamLeftDiff, newTeamLeft, newTeamRight, \
+#        teamLeftLastMatch, teamRightLastMatch, teamLeftThisWeek, map_affinity_left, teamLeftMapCount)
+
+
+    print(numRows)
+    numRows += 1
+
 
     if dataMatrix is None:
         columns = ['mapname', 'matchTime', 'teamLeftRating', 'teamRightRating', 'teamLeftKD', 'teamRightKD', \
@@ -328,8 +345,8 @@ for m in maps.fetchall():
 
         columns += ['teamLeft' + i for i in teamLeftMonthlyPerf]
         columns += ['teamRight' + i for i in teamRightMonthlyPerf]
-
-        dataMatrix = pd.DataFrame(columns=columns)
+        columns += ['winner']
+        dataMatrix = []
 
     datarow = [mapname, matchTime,  teamLeftRating ,  teamRightRating ,  teamLeftKD ,  teamRightKD , \
          teamLeftDiff ,  teamRightDiff ,  newTeamLeft ,  newTeamRight , \
@@ -337,12 +354,15 @@ for m in maps.fetchall():
          map_affinity_left ,  map_affinity_right]
 
     datarow += [teamLeftMonthlyPerf[i[8:]] for i in columns[16:16+prflen]]
-    datarow += [teamRightMonthlyPerf[i[9:]] for i in columns[16+prflen:]]
+    datarow += [teamRightMonthlyPerf[i[9:]] for i in columns[16+prflen:-1]]
+    datarow += [y]
+    dataRow = dict(zip(columns, datarow))
+    dataMatrix.append(dataRow)
 
-    print(datarow)
 
-    dataMatrix.append( datarow)
 
+dataMatrix =pd.DataFrame(dataMatrix) 
+    
 print(dataMatrix)
 import pickle
 pickle.dump(dataMatrix, open('dataMatrix', 'wb'), pickle.HIGHEST_PROTOCOL)
